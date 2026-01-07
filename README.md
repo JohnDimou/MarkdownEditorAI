@@ -203,7 +203,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 <p align="center">
-  Made with ❤️ and ✨ AI magic
+  Made with ❤️ and ✨ AI magic by <a href="https://optimalversion.io">OptimalVersion.io</a>
 </p>
 
 <p align="center">

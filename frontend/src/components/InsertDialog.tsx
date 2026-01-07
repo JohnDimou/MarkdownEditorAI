@@ -9,9 +9,27 @@ interface InsertDialogProps {
   selectedText?: string;
 }
 
+// Extract a nice display name from a URL
+function getDisplayTextFromUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    // Get hostname without www
+    let host = parsed.hostname.replace(/^www\./, '');
+    // Capitalize first letter of each part
+    host = host.split('.').map(part => 
+      part.charAt(0).toUpperCase() + part.slice(1)
+    ).join('.');
+    return host;
+  } catch {
+    // If URL parsing fails, just clean it up
+    return url.replace(/^https?:\/\/(www\.)?/, '').split('/')[0];
+  }
+}
+
 export function InsertDialog({ type, onInsert, onClose, selectedText = '' }: InsertDialogProps) {
   const [text, setText] = useState(selectedText);
   const [url, setUrl] = useState('');
+  const [autoText, setAutoText] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -26,10 +44,21 @@ export function InsertDialog({ type, onInsert, onClose, selectedText = '' }: Ins
     return () => document.removeEventListener('keydown', handleEscape);
   }, [onClose]);
 
+  // Auto-generate display text when URL changes
+  useEffect(() => {
+    if (url.trim() && !text.trim()) {
+      setAutoText(getDisplayTextFromUrl(url));
+    } else {
+      setAutoText('');
+    }
+  }, [url, text]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (url.trim()) {
-      onInsert(text || url, url);
+      // Use user text, or auto-generated text, or URL as fallback
+      const displayText = text.trim() || autoText || url;
+      onInsert(displayText, url);
     }
   };
 
@@ -46,14 +75,17 @@ export function InsertDialog({ type, onInsert, onClose, selectedText = '' }: Ins
         </div>
         <form onSubmit={handleSubmit} className="dialog-form">
           <div className="dialog-field">
-            <label htmlFor="text">{isLink ? 'Link Text' : 'Alt Text'}</label>
+            <label htmlFor="text">
+              {isLink ? 'Link Text' : 'Alt Text'}
+              {isLink && autoText && <span style={{ opacity: 0.6, fontWeight: 400 }}> (auto: {autoText})</span>}
+            </label>
             <input
               ref={inputRef}
               id="text"
               type="text"
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder={isLink ? 'Display text...' : 'Image description...'}
+              placeholder={autoText || (isLink ? 'Display text...' : 'Image description...')}
               autoComplete="off"
             />
           </div>
@@ -73,7 +105,7 @@ export function InsertDialog({ type, onInsert, onClose, selectedText = '' }: Ins
             <span className="dialog-preview-label">Preview:</span>
             <code className="dialog-preview-code">
               {isLink
-                ? `[${text || 'text'}](${url || 'url'})`
+                ? `[${text || autoText || 'text'}](${url || 'url'})`
                 : `![${text || 'alt'}](${url || 'url'})`}
             </code>
           </div>
