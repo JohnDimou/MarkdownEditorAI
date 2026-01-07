@@ -7,11 +7,19 @@ interface Change {
   reason: string;
 }
 
+interface AISettings {
+  apiKey: string;
+  model: string;
+  reasoningEffort: 'low' | 'medium' | 'high';
+  maxTokens: number;
+}
+
 interface AIEnhanceDialogProps {
   readonly originalText: string;
   readonly mode: 'selection' | 'document';
   readonly onApply: (newText: string) => void;
   readonly onClose: () => void;
+  readonly aiSettings: AISettings;
 }
 
 const LOADING_MESSAGES_SELECTION = [
@@ -61,6 +69,7 @@ export function AIEnhanceDialog({
   mode,
   onApply,
   onClose,
+  aiSettings,
 }: AIEnhanceDialogProps) {
   const [changes, setChanges] = useState<Change[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -74,19 +83,22 @@ export function AIEnhanceDialog({
 
   const loadingMessages = mode === 'document' ? LOADING_MESSAGES_DOCUMENT : LOADING_MESSAGES_SELECTION;
 
-  // Cycle through loading messages
+  // Cycle through loading messages - slower for document, faster for selection
   useEffect(() => {
     if (!isLoading) {
       setLoadingMessageIndex(0);
       return;
     }
     
+    // Document mode: 2s per message, Selection mode: 600ms
+    const speed = mode === 'document' ? 2000 : 600;
+    
     const interval = setInterval(() => {
       setLoadingMessageIndex(prev => (prev + 1) % loadingMessages.length);
-    }, 600);
+    }, speed);
     
     return () => clearInterval(interval);
-  }, [isLoading, loadingMessages.length]);
+  }, [isLoading, loadingMessages.length, mode]);
 
   const prompts = mode === 'document' ? DOCUMENT_PROMPTS : SELECTION_PROMPTS;
 
@@ -139,6 +151,12 @@ export function AIEnhanceDialog({
           text: originalText,
           mode,
           customInstruction: instruction || '',
+          settings: {
+            apiKey: aiSettings.apiKey,
+            model: aiSettings.model,
+            reasoningEffort: aiSettings.reasoningEffort,
+            maxTokens: aiSettings.maxTokens,
+          },
         }),
       });
 
@@ -158,7 +176,7 @@ export function AIEnhanceDialog({
     } finally {
       setIsLoading(false);
     }
-  }, [originalText, mode]);
+  }, [originalText, mode, aiSettings]);
 
   const handlePromptSubmit = (e: React.FormEvent) => {
     e.preventDefault();

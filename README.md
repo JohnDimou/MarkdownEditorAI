@@ -1,21 +1,21 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/React-18.3-61DAFB?style=for-the-badge&logo=react&logoColor=white" alt="React" />
-  <img src="https://img.shields.io/badge/TypeScript-5.5-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/Vite-5.4-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite" />
-  <img src="https://img.shields.io/badge/OpenAI-GPT--5.2-412991?style=for-the-badge&logo=openai&logoColor=white" alt="OpenAI" />
-  <img src="https://img.shields.io/badge/CodeMirror-6-D30707?style=for-the-badge&logo=codemirror&logoColor=white" alt="CodeMirror" />
+  <img src="https://img.shields.io/badge/React-18.3-61DAFB?style=for-the-badge&logo=react&logoColor=white" alt="React 18.3" />
+  <img src="https://img.shields.io/badge/TypeScript-5.5-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript 5.5" />
+  <img src="https://img.shields.io/badge/Vite-5.4-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite 5.4" />
+  <img src="https://img.shields.io/badge/OpenAI-GPT--5.2-412991?style=for-the-badge&logo=openai&logoColor=white" alt="OpenAI GPT-5.2" />
+  <img src="https://img.shields.io/badge/CodeMirror-6-D30707?style=for-the-badge&logo=codemirror&logoColor=white" alt="CodeMirror 6" />
 </p>
 
 <h1 align="center">✨ Markdown AI Editor</h1>
 
 <p align="center">
-  <strong>A beautiful, modern markdown editor with AI-powered enhancements</strong>
+  <strong>A modern, high-performance Markdown editor with AI-assisted rewriting, refactoring, and style normalization</strong>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-active-success.svg" alt="Status" />
-  <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License" />
-  <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome" />
+  <img src="https://img.shields.io/badge/status-active-success.svg" alt="Project Status: Active" />
+  <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" />
+  <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="Pull Requests: Welcome" />
 </p>
 
 <p align="center">
@@ -26,30 +26,30 @@
 
 ## 🚀 Features
 
-- **✍️ Rich Markdown Editing** - Full-featured CodeMirror 6 editor with syntax highlighting
-- **👁️ Live Preview** - Real-time rendered preview with synchronized scrolling
-- **🤖 AI Enhancement** - GPT-5.2 powered text improvements for selections or entire documents
-- **🎨 Beautiful UI** - Modern glassmorphism design with dark/light theme support
-- **⚡ Lightning Fast** - Built with Vite for instant hot reload
-- **📱 Responsive** - Works seamlessly on desktop and mobile
-- **💾 Auto-save** - Never lose your work with local storage persistence
-- **📤 Export** - Export to PDF with custom styling options
+- **✍️ Rich Markdown Editing** - CodeMirror 6-based editor with Markdown syntax highlighting, keymaps, and extensible language support
+- **👁️ Live Preview** - Low-latency rendering with synchronized scroll mapping between editor and preview panes
+- **🤖 AI Enhancement** - OpenAI GPT-5.2 powered rewrites for selections or full documents (clarity, tone, structure, and consistency)
+- **🎨 Beautiful UI** - Glassmorphism-inspired UI with theme tokens and dark/light mode switching
+- **⚡ Lightning Fast** - Vite dev server for near-instant HMR and optimized production builds
+- **📱 Responsive** - Adaptive split-pane layout for desktop/tablet/mobile form factors
+- **💾 Auto-save** - Local persistence with resilient recovery across reloads and crashes
+- **📤 Export** - PDF export pipeline with controllable print styles and layout tuning
 
 ## 🎯 AI Capabilities
 
 | Feature | Description |
 |---------|-------------|
-| ✨ **Enhance Selection** | Improve clarity, grammar, and style of selected text |
-| 📄 **Enhance Document** | AI-powered improvements for your entire document |
-| 🎯 **Quick Actions** | One-click prompts for common improvements |
-| 💬 **Custom Instructions** | Tell the AI exactly what you want |
+| ✨ **Enhance Selection** | Rewrite highlighted text for clarity, grammar, concision, and technical tone while preserving meaning |
+| 📄 **Enhance Document** | End-to-end improvement pass across the full Markdown file (headings, lists, code fences, and consistency) |
+| 🎯 **Quick Actions** | One-click prompt presets (tighten prose, make it more technical, standardize headings, fix grammar, etc.) |
+| 💬 **Custom Instructions** | Provide explicit transformation constraints (tone, audience, verbosity, style guide, terminology) |
 
 ## 📸 Preview
 
-The editor features a split-pane layout with:
-- **Left**: CodeMirror editor with line numbers, syntax highlighting, and formatting toolbar
-- **Right**: Live rendered markdown preview with GFM support
-- **Floating toolbar**: Quick formatting when text is selected
+The editor uses a split-pane architecture:
+- **Left**: CodeMirror editor with line numbers, syntax highlighting, and a formatting toolbar
+- **Right**: Live-rendered Markdown preview with GitHub Flavored Markdown (GFM) compatibility
+- **Floating toolbar**: Context-aware formatting controls when text is selected
 
 ---
 
@@ -57,16 +57,16 @@ The editor features a split-pane layout with:
 
 ### Prerequisites
 
-- **Node.js** 18+ 
+- **Node.js** 18+ (recommended: latest LTS)
 - **npm** or **yarn**
-- **OpenAI API Key** (for AI features)
+- **OpenAI API Key** (required for AI features)
 
 ### Installation
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/markdown-ai-editor.git
-   cd markdown-ai-editor
+   git clone https://github.com/JohnDimou/MarkdownEditorAI.git
+   cd MarkdownEditorAI
    ```
 
 2. **Install dependencies**
@@ -80,36 +80,41 @@ The editor features a split-pane layout with:
    npm install
    ```
 
-3. **Configure environment**
-   ```bash
-   # In backend/, set your OpenAI API key
-   export OPENAI_API_KEY=your_api_key_here
-   ```
-
 ### Running the App
 
-You'll need **two terminals** to run both the frontend and backend:
+Run **frontend** and **backend** in separate terminals:
 
 **Terminal 1 - Backend Server:**
 ```bash
 cd backend
 node server.js
 ```
-> 🚀 Backend runs on `http://localhost:3001`
+> 🚀 Backend listens on `http://localhost:3001`
 
 **Terminal 2 - Frontend Dev Server:**
 ```bash
 cd frontend
 npm run dev
 ```
-> ✨ Frontend runs on `http://localhost:5173`
+> ✨ Frontend dev server runs on `http://localhost:5173`
 
 ### Quick Start (One-liner)
 
 ```bash
-# From project root - run both servers
+# From project root - run both servers (basic convenience command)
 cd backend && node server.js & cd frontend && npm run dev
 ```
+
+### Configure API Key
+
+1. Open the app in your browser
+2. Click the **⚙️ Settings** gear icon (top right)
+3. Go to **API Key** tab
+4. Enter your OpenAI API key
+5. Models will be fetched automatically from OpenAI
+6. Select your preferred model and settings
+
+> 🔒 Your API key is stored securely in your browser's local storage and sent directly to OpenAI.
 
 ---
 
@@ -117,21 +122,22 @@ cd backend && node server.js & cd frontend && npm run dev
 
 ```
 MarkdownEditor/
-├── frontend/                # React + Vite frontend
+├── frontend/                # React + Vite client
 │   ├── src/
-│   │   ├── components/      # React components
-│   │   │   ├── Editor.tsx           # CodeMirror editor
-│   │   │   ├── Preview.tsx          # Markdown preview
-│   │   │   ├── AIEnhanceDialog.tsx  # AI enhancement modal
-│   │   │   ├── Toolbar.tsx          # Formatting toolbar
+│   │   ├── components/      # UI + editor components
+│   │   │   ├── Editor.tsx           # CodeMirror 6 editor wrapper
+│   │   │   ├── Preview.tsx          # Markdown render surface
+│   │   │   ├── AIEnhanceDialog.tsx  # AI enhancement modal + prompt UI
+│   │   │   ├── SettingsDialog.tsx   # Settings (API key, model selection)
+│   │   │   ├── Toolbar.tsx          # Formatting + command bar
 │   │   │   └── ...
-│   │   ├── hooks/           # Custom React hooks
-│   │   ├── styles/          # Global CSS
-│   │   └── App.tsx          # Main app component
+│   │   ├── hooks/           # Custom React hooks (state, persistence, commands)
+│   │   ├── styles/          # Global CSS + theme tokens
+│   │   └── App.tsx          # App shell / layout root
 │   └── package.json
 │
-├── backend/                 # Express.js API server
-│   ├── server.js           # API endpoints & OpenAI integration
+├── backend/                 # Express.js API service
+│   ├── server.js           # REST endpoints + OpenAI integration
 │   └── package.json
 │
 └── README.md
@@ -155,10 +161,10 @@ MarkdownEditor/
 
 ## 🎨 Themes
 
-Toggle between **Dark** and **Light** themes using the theme button in the toolbar. The editor automatically adapts:
+Toggle between **Dark** and **Light** themes using the theme control in the toolbar. The UI is tokenized and adapts automatically:
 
-- 🌙 **Dark Mode** - Easy on the eyes for late-night writing
-- ☀️ **Light Mode** - Clean and bright for daytime use
+- 🌙 **Dark Mode** - Reduced glare and tuned contrast for long technical sessions
+- ☀️ **Light Mode** - High legibility for bright environments and printing
 
 ---
 
@@ -179,14 +185,14 @@ Toggle between **Dark** and **Light** themes using the theme button in the toolb
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/health` | GET | Health check |
-| `/api/enhance-smart` | POST | AI enhancement (selection or document mode) |
+| `/api/health` | GET | Health probe for uptime/monitoring |
+| `/api/enhance-smart` | POST | AI enhancement endpoint (selection or full-document mode) |
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Feel free to:
+Contributions are welcome—especially improvements to editor ergonomics, prompt tooling, and export fidelity:
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing`)
@@ -203,7 +209,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 <p align="center">
-  Made with ❤️ and ✨ AI magic by <a href="https://optimalversion.io">OptimalVersion.io</a>
+  Made with ❤️ and ✨ AI-assisted workflows by <a href="https://optimalversion.io">OptimalVersion.io</a>
 </p>
 
 <p align="center">

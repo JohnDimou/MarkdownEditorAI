@@ -7,6 +7,7 @@ import { ToastContainer, ToastMessage, createToast } from './components/Toast';
 import { InsertDialog } from './components/InsertDialog';
 import { AIEnhanceDialog } from './components/AIEnhanceDialog';
 import { ExportPDFDialog } from './components/ExportPDFDialog';
+import { SettingsDialog, AISettings, DEFAULT_SETTINGS } from './components/SettingsDialog';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { useDebounce } from './hooks/useDebounce';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -56,11 +57,16 @@ console.log(greeting);
 
 const STORAGE_KEY = 'markdown-editor-content';
 const THEME_KEY = 'markdown-editor-theme';
+const SETTINGS_KEY = 'markdown-editor-settings';
 const MAX_HISTORY = 50;
 
 export default function App() {
   // Theme state
   const [theme, setTheme] = useLocalStorage<'dark' | 'light'>(THEME_KEY, 'dark');
+  
+  // AI Settings state
+  const [aiSettings, setAiSettings] = useLocalStorage<AISettings>(SETTINGS_KEY, DEFAULT_SETTINGS);
+  const [showSettings, setShowSettings] = useState(false);
 
   // Resizer state
   const [editorWidth, setEditorWidth] = useState(50);
@@ -668,12 +674,14 @@ export default function App() {
           onClear={handleClear}
           onToggleSyncScroll={() => setSyncScroll(!syncScroll)}
           onToggleTheme={toggleTheme}
+          onOpenSettings={() => setShowSettings(true)}
           canUndo={canUndo}
           canRedo={canRedo}
           isLoading={isLoading}
           syncScroll={syncScroll}
           theme={theme}
           hasSelection={hasSelection}
+          hasApiKey={!!aiSettings.apiKey}
         />
       </header>
 
@@ -713,6 +721,7 @@ export default function App() {
           originalText={aiEnhance.originalText}
           onApply={handleApplyAIEnhancement}
           onClose={() => setAiEnhance(null)}
+          aiSettings={aiSettings}
         />
       )}
 
@@ -729,6 +738,17 @@ export default function App() {
         <ExportPDFDialog
           onExport={handleExportPDF}
           onClose={() => setShowExportPDFDialog(false)}
+        />
+      )}
+
+      {showSettings && (
+        <SettingsDialog
+          settings={aiSettings}
+          onSave={(newSettings) => {
+            setAiSettings(newSettings);
+            addToast('success', 'Settings saved!', 2000);
+          }}
+          onClose={() => setShowSettings(false)}
         />
       )}
 
