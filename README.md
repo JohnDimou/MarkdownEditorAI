@@ -18,6 +18,10 @@
   <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome" />
 </p>
 
+<p align="center">
+  <img src="demo.png" alt="Markdown AI Editor Demo" width="900" />
+</p>
+
 ---
 
 ## 🚀 Features
