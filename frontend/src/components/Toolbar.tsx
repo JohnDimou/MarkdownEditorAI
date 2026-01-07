@@ -22,6 +22,7 @@ interface ToolbarProps {
   theme: 'dark' | 'light';
   hasSelection: boolean;
   hasApiKey: boolean;
+  activeStyles: Set<string>;
 }
 
 export function Toolbar({
@@ -46,6 +47,7 @@ export function Toolbar({
   theme,
   hasSelection,
   hasApiKey,
+  activeStyles,
 }: ToolbarProps) {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -88,43 +90,100 @@ export function Toolbar({
           <ToolbarButton
             label="B"
             onClick={() => onFormat('bold')}
-            title="Bold (Ctrl+B)"
+            title={activeStyles.has('bold') ? "Remove Bold (Ctrl+B)" : "Bold (Ctrl+B)"}
             className="bold"
+            active={activeStyles.has('bold')}
           />
           <ToolbarButton
             label="I"
             onClick={() => onFormat('italic')}
-            title="Italic (Ctrl+I)"
+            title={activeStyles.has('italic') ? "Remove Italic (Ctrl+I)" : "Italic (Ctrl+I)"}
             className="italic"
+            active={activeStyles.has('italic')}
           />
           <ToolbarButton
             icon={<StrikethroughIcon />}
             onClick={() => onFormat('strikethrough')}
-            title="Strikethrough"
+            title={activeStyles.has('strikethrough') ? "Remove Strikethrough" : "Strikethrough"}
+            active={activeStyles.has('strikethrough')}
           />
           <ToolbarButton
             label="<>"
             onClick={() => onFormat('code')}
-            title="Inline Code"
+            title={activeStyles.has('code') ? "Remove Inline Code" : "Inline Code"}
+            active={activeStyles.has('code')}
+          />
+          <ToolbarButton
+            icon={<SubscriptIcon />}
+            onClick={() => onFormat('subscript')}
+            title={activeStyles.has('subscript') ? "Remove Subscript" : "Subscript (HTML)"}
+            active={activeStyles.has('subscript')}
+          />
+          <ToolbarButton
+            icon={<SuperscriptIcon />}
+            onClick={() => onFormat('superscript')}
+            title={activeStyles.has('superscript') ? "Remove Superscript" : "Superscript (HTML)"}
+            active={activeStyles.has('superscript')}
+          />
+          <ToolbarButton
+            icon={<HighlightIcon />}
+            onClick={() => onFormat('highlight')}
+            title={activeStyles.has('highlight') ? "Remove Highlight" : "Highlight/Mark (HTML)"}
+            active={activeStyles.has('highlight')}
+          />
+          <ToolbarButton
+            icon={<ClearFormattingIcon />}
+            onClick={() => onFormat('clearFormatting')}
+            title="Clear All Formatting"
           />
         </div>
 
-        {/* Headings Group */}
+        {/* Headings & Paragraph Group */}
         <div className="toolbar-group">
+          <ToolbarButton
+            label="P"
+            onClick={() => onFormat('paragraph')}
+            title={activeStyles.has('paragraph') ? "Already Paragraph" : "Paragraph (remove heading)"}
+            active={activeStyles.has('paragraph')}
+          />
           <ToolbarButton
             label="H1"
             onClick={() => onFormat('h1')}
-            title="Heading 1 (Ctrl+1)"
+            title={activeStyles.has('h1') ? "Change Heading 1 (Ctrl+1)" : "Heading 1 (Ctrl+1)"}
+            active={activeStyles.has('h1')}
           />
           <ToolbarButton
             label="H2"
             onClick={() => onFormat('h2')}
-            title="Heading 2 (Ctrl+2)"
+            title={activeStyles.has('h2') ? "Change Heading 2 (Ctrl+2)" : "Heading 2 (Ctrl+2)"}
+            active={activeStyles.has('h2')}
           />
           <ToolbarButton
             label="H3"
             onClick={() => onFormat('h3')}
-            title="Heading 3 (Ctrl+3)"
+            title={activeStyles.has('h3') ? "Change Heading 3 (Ctrl+3)" : "Heading 3 (Ctrl+3)"}
+            active={activeStyles.has('h3')}
+          />
+          <ToolbarButton
+            label="H4"
+            onClick={() => onFormat('h4')}
+            title={activeStyles.has('h4') ? "Change Heading 4" : "Heading 4"}
+            active={activeStyles.has('h4')}
+            className="small-label"
+          />
+          <ToolbarButton
+            label="H5"
+            onClick={() => onFormat('h5')}
+            title={activeStyles.has('h5') ? "Change Heading 5" : "Heading 5"}
+            active={activeStyles.has('h5')}
+            className="small-label"
+          />
+          <ToolbarButton
+            label="H6"
+            onClick={() => onFormat('h6')}
+            title={activeStyles.has('h6') ? "Change Heading 6" : "Heading 6"}
+            active={activeStyles.has('h6')}
+            className="small-label"
           />
         </div>
 
@@ -133,22 +192,26 @@ export function Toolbar({
           <ToolbarButton
             icon={<ListIcon />}
             onClick={() => onFormat('list')}
-            title="Bullet List"
+            title={activeStyles.has('list') ? "Remove Bullet List" : "Bullet List"}
+            active={activeStyles.has('list')}
           />
           <ToolbarButton
             icon={<OrderedListIcon />}
             onClick={() => onFormat('orderedList')}
-            title="Numbered List"
+            title={activeStyles.has('orderedList') ? "Remove Numbered List" : "Numbered List"}
+            active={activeStyles.has('orderedList')}
           />
           <ToolbarButton
             icon={<TaskIcon />}
             onClick={() => onFormat('task')}
-            title="Task List"
+            title={activeStyles.has('task') ? "Remove Task List" : "Task List"}
+            active={activeStyles.has('task')}
           />
           <ToolbarButton
             icon={<QuoteIcon />}
             onClick={() => onFormat('quote')}
-            title="Quote"
+            title={activeStyles.has('quote') ? "Remove Quote" : "Quote"}
+            active={activeStyles.has('quote')}
           />
         </div>
 
@@ -165,6 +228,11 @@ export function Toolbar({
             title="Insert Image"
           />
           <ToolbarButton
+            icon={<TableIcon />}
+            onClick={() => onFormat('table')}
+            title="Insert Table"
+          />
+          <ToolbarButton
             icon={<CodeBlockIcon />}
             onClick={() => onFormat('codeBlock')}
             title="Code Block"
@@ -173,6 +241,11 @@ export function Toolbar({
             icon={<HrIcon />}
             onClick={() => onFormat('hr')}
             title="Horizontal Rule"
+          />
+          <ToolbarButton
+            icon={<FootnoteIcon />}
+            onClick={() => onFormat('footnote')}
+            title="Insert Footnote"
           />
         </div>
 
@@ -418,6 +491,68 @@ function HrIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <line x1="3" y1="12" x2="21" y2="12" />
+    </svg>
+  );
+}
+
+function TableIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <line x1="3" y1="9" x2="21" y2="9" />
+      <line x1="3" y1="15" x2="21" y2="15" />
+      <line x1="9" y1="3" x2="9" y2="21" />
+      <line x1="15" y1="3" x2="15" y2="21" />
+    </svg>
+  );
+}
+
+function FootnoteIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 20V4" />
+      <path d="M5 12h14" />
+      <circle cx="18" cy="5" r="2" />
+    </svg>
+  );
+}
+
+function SubscriptIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m4 5 8 8" />
+      <path d="m12 5-8 8" />
+      <path d="M20 19h-4c0-1.5.44-2 1.5-2.5S20 15.33 20 14c0-.47-.17-.93-.48-1.29a2.11 2.11 0 0 0-2.62-.44c-.42.24-.74.62-.9 1.07" />
+    </svg>
+  );
+}
+
+function SuperscriptIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m4 19 8-8" />
+      <path d="m12 19-8-8" />
+      <path d="M20 12h-4c0-1.5.442-2 1.5-2.5S20 8.334 20 7c0-.472-.17-.93-.484-1.29a2.105 2.105 0 0 0-2.617-.436c-.42.239-.738.614-.899 1.06" />
+    </svg>
+  );
+}
+
+function HighlightIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m9 11-6 6v3h9l3-3" />
+      <path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4" />
+    </svg>
+  );
+}
+
+function ClearFormattingIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 7V4h16v3" />
+      <path d="M9 20h6" />
+      <path d="M12 4v16" />
+      <path d="m3 3 18 18" />
     </svg>
   );
 }

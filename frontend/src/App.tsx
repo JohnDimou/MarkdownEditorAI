@@ -96,6 +96,7 @@ export default function App() {
   const [showExportPDFDialog, setShowExportPDFDialog] = useState(false);
   const [hasSelection, setHasSelection] = useState(false);
   const [currentSelection, setCurrentSelection] = useState<{ text: string; from: number; to: number } | null>(null);
+  const [activeStyles, setActiveStyles] = useState<Set<string>>(new Set());
 
   // History for undo/redo
   const historyRef = useRef<string[]>([savedContent]);
@@ -255,19 +256,193 @@ export default function App() {
       italic: { prefix: '*', suffix: '*', placeholder: 'italic text' },
       code: { prefix: '`', suffix: '`', placeholder: 'code' },
       strikethrough: { prefix: '~~', suffix: '~~', placeholder: 'strikethrough' },
+      paragraph: { prefix: '', suffix: '', placeholder: '', linePrefix: true },
       h1: { prefix: '# ', suffix: '', placeholder: 'Heading 1', linePrefix: true },
       h2: { prefix: '## ', suffix: '', placeholder: 'Heading 2', linePrefix: true },
       h3: { prefix: '### ', suffix: '', placeholder: 'Heading 3', linePrefix: true },
+      h4: { prefix: '#### ', suffix: '', placeholder: 'Heading 4', linePrefix: true },
+      h5: { prefix: '##### ', suffix: '', placeholder: 'Heading 5', linePrefix: true },
+      h6: { prefix: '###### ', suffix: '', placeholder: 'Heading 6', linePrefix: true },
       quote: { prefix: '> ', suffix: '', placeholder: 'quote', linePrefix: true },
       list: { prefix: '- ', suffix: '', placeholder: 'list item', linePrefix: true },
       orderedList: { prefix: '1. ', suffix: '', placeholder: 'list item', linePrefix: true },
       task: { prefix: '- [ ] ', suffix: '', placeholder: 'task', linePrefix: true },
       codeBlock: { prefix: '```\n', suffix: '\n```', placeholder: 'code here' },
       hr: { prefix: '\n---\n', suffix: '', placeholder: '' },
+      table: { prefix: '\n| Header 1 | Header 2 | Header 3 |\n| -------- | -------- | -------- |\n| Cell 1   | Cell 2   | Cell 3   |\n| Cell 4   | Cell 5   | Cell 6   |\n', suffix: '', placeholder: '' },
+      footnote: { prefix: '[^', suffix: ']', placeholder: 'note' },
+      subscript: { prefix: '<sub>', suffix: '</sub>', placeholder: 'subscript' },
+      superscript: { prefix: '<sup>', suffix: '</sup>', placeholder: 'superscript' },
+      highlight: { prefix: '<mark>', suffix: '</mark>', placeholder: 'highlighted text' },
     };
+
+    // Special handling for clear formatting - remove ALL markdown/HTML formatting
+    // Must be checked BEFORE the format lookup since 'clearFormatting' isn't in formats
+    if (type === 'clearFormatting') {
+      if (!selectedText) return;
+      
+      let cleanText = selectedText;
+      
+      // Remove code blocks first (before other processing) - keep content
+      cleanText = cleanText.replace(/```[a-z]*\n?([\s\S]*?)```/gi, '$1');
+      
+      // Remove inline code
+      cleanText = cleanText.replace(/`([^`]+)`/g, '$1');
+      
+      // Remove images first - keep alt text or remove entirely
+      cleanText = cleanText.replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1');
+      cleanText = cleanText.replace(/!\[([^\]]*)\]\[[^\]]*\]/g, '$1');
+      
+      // Remove links - keep link text  
+      cleanText = cleanText.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1');
+      cleanText = cleanText.replace(/\[([^\]]+)\]\[[^\]]*\]/g, '$1');
+      
+      // Remove reference definitions (lines like [ref]: url)
+      cleanText = cleanText.replace(/^\s*\[[^\]]+\]:\s*\S.*$/gm, '');
+      
+      // Remove footnote references and definitions
+      cleanText = cleanText.replace(/\[\^[^\]]+\]/g, '');
+      cleanText = cleanText.replace(/\^\[[^\]]*\]/g, ''); // Inline footnotes
+      cleanText = cleanText.replace(/^\s*\[\^[^\]]+\]:[\s\S]*?(?=\n\S|\n\n|\Z)/gm, '');
+      
+      // Remove bold - handle nested cases
+      cleanText = cleanText.replace(/\*\*\*([^*]+)\*\*\*/g, '$1'); // Bold+italic
+      cleanText = cleanText.replace(/___([^_]+)___/g, '$1'); // Bold+italic underscore
+      cleanText = cleanText.replace(/\*\*([^*]+)\*\*/g, '$1');
+      cleanText = cleanText.replace(/__([^_]+)__/g, '$1');
+      
+      // Remove italic
+      cleanText = cleanText.replace(/\*([^*]+)\*/g, '$1');
+      cleanText = cleanText.replace(/(?<![\\])_([^_]+)_/g, '$1');
+      
+      // Remove strikethrough
+      cleanText = cleanText.replace(/~~([^~]+)~~/g, '$1');
+      
+      // Remove escaped characters (keep the character)
+      cleanText = cleanText.replace(/\\([*_`~\[\]()#+-\.!|\\])/g, '$1');
+      
+      // Remove HTML tags but keep content
+      cleanText = cleanText.replace(/<([a-z][a-z0-9]*)[^>]*>([\s\S]*?)<\/\1>/gi, '$2');
+      cleanText = cleanText.replace(/<[^>]+\/?>/g, ''); // Self-closing and remaining tags
+      
+      // Process line by line for line-prefix formatting
+      cleanText = cleanText.split('\n').map((line, index, allLines) => {
+        let cleaned = line;
+        
+        // Remove headings (# to ######)
+        cleaned = cleaned.replace(/^#{1,6}\s+/, '');
+        
+        // Remove setext-style heading underlines (=== or ---)
+        if (/^[=]+\s*$/.test(cleaned) || /^[-]+\s*$/.test(cleaned)) {
+          // Check if previous line exists and is not empty (it was a heading)
+          if (index > 0 && allLines[index - 1].trim().length > 0 && !allLines[index - 1].includes('|')) {
+            return ''; // Remove the underline
+          }
+        }
+        
+        // Remove blockquotes (can be nested: >, >>, > > >)
+        cleaned = cleaned.replace(/^(?:\s*>\s*)+/, '');
+        
+        // Remove unordered list markers (-, *, +) with optional indentation
+        cleaned = cleaned.replace(/^\s*[-*+]\s+/, '');
+        
+        // Remove ordered list markers with optional indentation
+        cleaned = cleaned.replace(/^\s*\d+\.\s+/, '');
+        
+        // Remove task list markers
+        cleaned = cleaned.replace(/^\s*[-*+]\s*\[[ xX]\]\s*/, '');
+        
+        // Remove horizontal rules (---, ***, ___, ===)
+        if (/^\s*[-]{3,}\s*$/.test(cleaned) || 
+            /^\s*[*]{3,}\s*$/.test(cleaned) || 
+            /^\s*[_]{3,}\s*$/.test(cleaned)) {
+          return '';
+        }
+        
+        return cleaned;
+      }).join('\n');
+      
+      // Handle tables - extract cell content without pipe formatting
+      cleanText = cleanText.split('\n').map(line => {
+        // Check if it's a table separator line (only dashes, pipes, colons, spaces)
+        if (/^\s*\|?[\s|:\-]+\|?\s*$/.test(line) && line.includes('-') && line.includes('|')) {
+          return '';
+        }
+        // If line has pipes, extract cell content
+        if (line.includes('|')) {
+          const cells = line
+            .replace(/^\s*\||\|\s*$/g, '') // Remove leading/trailing pipes
+            .split('|')
+            .map(cell => cell.trim())
+            .filter(cell => cell.length > 0);
+          if (cells.length > 0) {
+            return cells.join('  '); // Join with spaces
+          }
+          return '';
+        }
+        return line;
+      }).join('\n');
+      
+      // Clean up multiple consecutive blank lines
+      cleanText = cleanText.replace(/\n{3,}/g, '\n\n');
+      
+      // Remove lines that are only whitespace
+      cleanText = cleanText.split('\n')
+        .map(line => line.trim())
+        .filter((line, i, arr) => {
+          // Keep the line if it has content, or if it's a single blank line between content
+          if (line.length > 0) return true;
+          if (i > 0 && i < arr.length - 1 && arr[i - 1].length > 0 && arr[i + 1]?.length > 0) return true;
+          return false;
+        })
+        .join('\n');
+      
+      // Final cleanup - trim
+      cleanText = cleanText.trim();
+      
+      const newContent = content.slice(0, start) + cleanText + content.slice(end);
+      updateContent(newContent);
+      setSelection(start, start + cleanText.length);
+      return;
+    }
 
     const format = formats[type];
     if (!format) return;
+
+    // Special handling for paragraph - remove any heading prefix or underline style
+    if (type === 'paragraph') {
+      let lineStart = start;
+      while (lineStart > 0 && content[lineStart - 1] !== '\n') lineStart--;
+      
+      let lineEnd = end;
+      while (lineEnd < content.length && content[lineEnd] !== '\n') lineEnd++;
+      
+      const lineContent = content.slice(lineStart, lineEnd);
+      const headingMatch = lineContent.match(/^(#{1,6})\s/);
+      
+      if (headingMatch) {
+        const existingPrefix = headingMatch[0];
+        const newContent = content.slice(0, lineStart) + content.slice(lineStart + existingPrefix.length);
+        updateContent(newContent);
+        const diff = -existingPrefix.length;
+        setSelection(Math.max(lineStart, start + diff), end + diff);
+        return;
+      }
+      
+      // Check for alternative heading style (=== or --- on next line)
+      let nextLineStart = lineEnd + 1;
+      let nextLineEnd = nextLineStart;
+      while (nextLineEnd < content.length && content[nextLineEnd] !== '\n') nextLineEnd++;
+      const nextLine = content.slice(nextLineStart, nextLineEnd);
+      
+      if (nextLine.match(/^=+\s*$/) || nextLine.match(/^-+\s*$/)) {
+        // Remove the underline line
+        const newContent = content.slice(0, lineEnd) + content.slice(nextLineEnd);
+        updateContent(newContent);
+        // Selection stays the same
+      }
+      return;
+    }
 
     const { prefix, suffix, placeholder, linePrefix } = format;
 
@@ -278,11 +453,25 @@ export default function App() {
         const beforeStart = content.slice(Math.max(0, start - prefix.length), start);
         const afterEnd = content.slice(end, end + suffix.length);
 
+        // Check for standard format (** or *)
         if (beforeStart === prefix && afterEnd === suffix) {
           const newContent = content.slice(0, start - prefix.length) + selectedText + content.slice(end + suffix.length);
           updateContent(newContent);
           setSelection(start - prefix.length, end - prefix.length);
           return;
+        }
+
+        // Also check for underscore variants (__bold__ and _italic_)
+        if (type === 'bold' || type === 'italic') {
+          const altMarker = type === 'bold' ? '__' : '_';
+          const beforeStartAlt = content.slice(Math.max(0, start - altMarker.length), start);
+          const afterEndAlt = content.slice(end, end + altMarker.length);
+          if (beforeStartAlt === altMarker && afterEndAlt === altMarker) {
+            const newContent = content.slice(0, start - altMarker.length) + selectedText + content.slice(end + altMarker.length);
+            updateContent(newContent);
+            setSelection(start - altMarker.length, end - altMarker.length);
+            return;
+          }
         }
 
         if (selectedText.startsWith(prefix) && selectedText.endsWith(suffix) && selectedText.length > prefix.length + suffix.length) {
@@ -292,53 +481,109 @@ export default function App() {
           setSelection(start, start + unwrapped.length);
           return;
         }
+
+        // Also check for underscore variants in selection
+        if (type === 'bold' || type === 'italic') {
+          const altMarker = type === 'bold' ? '__' : '_';
+          if (selectedText.startsWith(altMarker) && selectedText.endsWith(altMarker) && selectedText.length > altMarker.length * 2) {
+            const unwrapped = selectedText.slice(altMarker.length, -altMarker.length);
+            const newContent = content.slice(0, start) + unwrapped + content.slice(end);
+            updateContent(newContent);
+            setSelection(start, start + unwrapped.length);
+            return;
+          }
+        }
       }
 
-      // For line-prefix formats
+      // For line-prefix formats - handle multiple lines
       if (linePrefix) {
-        let lineStart = start;
-        while (lineStart > 0 && content[lineStart - 1] !== '\n') lineStart--;
-
-        const lineContent = content.slice(lineStart, end);
-
-        if (lineContent.startsWith(prefix)) {
-          const newContent = content.slice(0, lineStart) + content.slice(lineStart + prefix.length);
-          updateContent(newContent);
-          setSelection(Math.max(lineStart, start - prefix.length), end - prefix.length);
-          return;
-        }
-
-        // Replace heading level
-        const headingMatch = lineContent.match(/^(#{1,6})\s/);
-        if (headingMatch && ['h1', 'h2', 'h3'].includes(type)) {
-          const existingPrefix = headingMatch[0];
-          const newContent = content.slice(0, lineStart) + prefix + content.slice(lineStart + existingPrefix.length);
-          updateContent(newContent);
-          const diff = prefix.length - existingPrefix.length;
-          setSelection(start + diff, end + diff);
-          return;
-        }
+        // Find the start of the first line and end of the last line
+        let firstLineStart = start;
+        while (firstLineStart > 0 && content[firstLineStart - 1] !== '\n') firstLineStart--;
+        
+        let lastLineEnd = end;
+        while (lastLineEnd < content.length && content[lastLineEnd] !== '\n') lastLineEnd++;
+        
+        // Get all the lines in the selection
+        const selectedBlock = content.slice(firstLineStart, lastLineEnd);
+        const lines = selectedBlock.split('\n');
+        
+        // Pattern to match existing line prefixes
+        const linePrefixPatterns = [
+          /^(#{1,6})\s/,           // Headings (# through ######)
+          /^(>+)\s?/,              // Quote (can be nested: >, >>, >>>)
+          /^(\s*)[-*+]\s(?!\[)/,   // Bullet list (-, *, +) with optional indent
+          /^(\s*)\d+\.\s/,         // Ordered list with optional indent
+          /^(\s*)[-*+]\s\[[ xX]\]\s/,  // Task list with optional indent
+        ];
+        
+        // Check if ALL non-empty lines already have this prefix (for toggle off)
+        const nonEmptyLines = lines.filter(line => line.trim().length > 0);
+        const allHavePrefix = nonEmptyLines.length > 0 && nonEmptyLines.every(line => {
+          // For ordered lists, check for any number prefix
+          if (type === 'orderedList') {
+            return /^\s*\d+\.\s/.test(line);
+          }
+          return line.trimStart().startsWith(prefix.trim());
+        });
+        
+        // Process each line
+        let orderNum = 1;
+        const processedLines = lines.map((line) => {
+          if (line.trim().length === 0) return line; // Keep empty lines as-is
+          
+          // If all have prefix, remove it (toggle off)
+          if (allHavePrefix) {
+            for (const pattern of linePrefixPatterns) {
+              const match = line.match(pattern);
+              if (match) {
+                return line.slice(match[0].length);
+              }
+            }
+            return line;
+          }
+          
+          // Check for existing prefix to replace
+          for (const pattern of linePrefixPatterns) {
+            const match = line.match(pattern);
+            if (match) {
+              const existingPrefix = match[0];
+              const indent = match[1] && !match[1].startsWith('#') && !match[1].startsWith('>') ? match[1] : '';
+              // For ordered lists, use incrementing numbers
+              const actualPrefix = type === 'orderedList' ? `${indent}${orderNum++}. ` : indent + prefix;
+              return actualPrefix + line.slice(existingPrefix.length);
+            }
+          }
+          
+          // No existing prefix, add new one
+          // For ordered lists, use incrementing numbers
+          const actualPrefix = type === 'orderedList' ? `${orderNum++}. ` : prefix;
+          return actualPrefix + line;
+        });
+        
+        const newBlock = processedLines.join('\n');
+        const newContent = content.slice(0, firstLineStart) + newBlock + content.slice(lastLineEnd);
+        const lengthDiff = newBlock.length - selectedBlock.length;
+        
+        updateContent(newContent);
+        setSelection(firstLineStart, lastLineEnd + lengthDiff);
+        return;
       }
     }
 
-    // Apply new formatting
+    // Apply new formatting (line-prefix already handled above for selections)
     let newContent: string;
     let newStart: number;
     let newEnd: number;
 
     if (linePrefix) {
+      // This handles the case when there's no selection (inserting placeholder)
       let lineStart = start;
       while (lineStart > 0 && content[lineStart - 1] !== '\n') lineStart--;
 
-      if (selectedText) {
-        newContent = content.slice(0, lineStart) + prefix + content.slice(lineStart);
-        newStart = start + prefix.length;
-        newEnd = end + prefix.length;
-      } else {
-        newContent = content.slice(0, lineStart) + prefix + placeholder + content.slice(lineStart);
-        newStart = lineStart + prefix.length;
-        newEnd = lineStart + prefix.length + placeholder.length;
-      }
+      newContent = content.slice(0, lineStart) + prefix + placeholder + content.slice(lineStart);
+      newStart = lineStart + prefix.length;
+      newEnd = lineStart + prefix.length + placeholder.length;
     } else {
       const textToFormat = selectedText || placeholder;
       newContent = content.slice(0, start) + prefix + textToFormat + suffix + content.slice(end);
@@ -373,16 +618,154 @@ export default function App() {
     setDialogType('image');
   }, []);
 
+  // Detect active styles for selected text
+  const detectActiveStyles = useCallback((text: string, from: number, to: number): Set<string> => {
+    const styles = new Set<string>();
+    
+    // Get surrounding context for inline styles
+    const prefixLength = Math.min(from, 10);
+    const suffixLength = Math.min(content.length - to, 10);
+    const beforeSelection = content.slice(from - prefixLength, from);
+    const afterSelection = content.slice(to, to + suffixLength);
+    
+    // Check for bold (**text** or __text__)
+    const isBoldAsterisk = (beforeSelection.endsWith('**') && afterSelection.startsWith('**')) ||
+      (text.startsWith('**') && text.endsWith('**') && text.length > 4);
+    const isBoldUnderscore = (beforeSelection.endsWith('__') && afterSelection.startsWith('__')) ||
+      (text.startsWith('__') && text.endsWith('__') && text.length > 4);
+    if (isBoldAsterisk || isBoldUnderscore) {
+      styles.add('bold');
+    }
+    
+    // Check for italic (*text* or _text_) - but not bold
+    const beforeEndsWithSingleStar = beforeSelection.endsWith('*') && !beforeSelection.endsWith('**');
+    const afterStartsWithSingleStar = afterSelection.startsWith('*') && !afterSelection.startsWith('**');
+    const beforeEndsWithSingleUnderscore = beforeSelection.endsWith('_') && !beforeSelection.endsWith('__');
+    const afterStartsWithSingleUnderscore = afterSelection.startsWith('_') && !afterSelection.startsWith('__');
+    const isItalicAsterisk = (beforeEndsWithSingleStar && afterStartsWithSingleStar) ||
+      (text.startsWith('*') && !text.startsWith('**') && text.endsWith('*') && !text.endsWith('**') && text.length > 2);
+    const isItalicUnderscore = (beforeEndsWithSingleUnderscore && afterStartsWithSingleUnderscore) ||
+      (text.startsWith('_') && !text.startsWith('__') && text.endsWith('_') && !text.endsWith('__') && text.length > 2);
+    if (isItalicAsterisk || isItalicUnderscore) {
+      styles.add('italic');
+    }
+    
+    // Check for strikethrough (~~text~~)
+    if (
+      (beforeSelection.endsWith('~~') && afterSelection.startsWith('~~')) ||
+      (text.startsWith('~~') && text.endsWith('~~') && text.length > 4)
+    ) {
+      styles.add('strikethrough');
+    }
+    
+    // Check for inline code (`text`)
+    if (
+      (beforeSelection.endsWith('`') && !beforeSelection.endsWith('``') && afterSelection.startsWith('`') && !afterSelection.startsWith('``')) ||
+      (text.startsWith('`') && !text.startsWith('``') && text.endsWith('`') && !text.endsWith('``') && text.length > 2)
+    ) {
+      styles.add('code');
+    }
+    
+    // Check for subscript (<sub>text</sub>)
+    if (
+      (beforeSelection.endsWith('<sub>') && afterSelection.startsWith('</sub>')) ||
+      (text.startsWith('<sub>') && text.endsWith('</sub>'))
+    ) {
+      styles.add('subscript');
+    }
+    
+    // Check for superscript (<sup>text</sup>)
+    if (
+      (beforeSelection.endsWith('<sup>') && afterSelection.startsWith('</sup>')) ||
+      (text.startsWith('<sup>') && text.endsWith('</sup>'))
+    ) {
+      styles.add('superscript');
+    }
+    
+    // Check for highlight/mark (<mark>text</mark>)
+    if (
+      (beforeSelection.endsWith('<mark>') && afterSelection.startsWith('</mark>')) ||
+      (text.startsWith('<mark>') && text.endsWith('</mark>'))
+    ) {
+      styles.add('highlight');
+    }
+    
+    // For line-based styles, find the start and end of the current line
+    let lineStart = from;
+    while (lineStart > 0 && content[lineStart - 1] !== '\n') {
+      lineStart--;
+    }
+    let lineEnd = to;
+    while (lineEnd < content.length && content[lineEnd] !== '\n') {
+      lineEnd++;
+    }
+    const fullLineContent = content.slice(lineStart, lineEnd);
+    
+    // Also check next line for alternative heading styles (=== or ---)
+    let nextLineStart = lineEnd + 1;
+    let nextLineEnd = nextLineStart;
+    while (nextLineEnd < content.length && content[nextLineEnd] !== '\n') {
+      nextLineEnd++;
+    }
+    const nextLine = content.slice(nextLineStart, nextLineEnd);
+    
+    // Check for headings (# style)
+    const isH1Hash = fullLineContent.match(/^#\s/);
+    const isH2Hash = fullLineContent.match(/^##\s/);
+    const isH3Hash = fullLineContent.match(/^###\s/);
+    const isH4Hash = fullLineContent.match(/^####\s/);
+    const isH5Hash = fullLineContent.match(/^#####\s/);
+    const isH6Hash = fullLineContent.match(/^######\s/);
+    
+    // Check for alternative heading styles (underline)
+    const isH1Alt = nextLine.match(/^=+\s*$/) && fullLineContent.trim().length > 0;
+    const isH2Alt = nextLine.match(/^-+\s*$/) && fullLineContent.trim().length > 0 && !fullLineContent.match(/^>/);
+    
+    if (isH1Hash || isH1Alt) styles.add('h1');
+    else if (isH2Hash || isH2Alt) styles.add('h2');
+    else if (isH3Hash) styles.add('h3');
+    else if (isH4Hash) styles.add('h4');
+    else if (isH5Hash) styles.add('h5');
+    else if (isH6Hash) styles.add('h6');
+    
+    // Check for quote (can be nested: >, >>, >>>)
+    const isQuote = fullLineContent.match(/^>+\s?/);
+    if (isQuote) styles.add('quote');
+    
+    // Check for bullet list (-, *, +)
+    const isBulletList = fullLineContent.match(/^\s*[-*+]\s(?!\[)/);
+    if (isBulletList) styles.add('list');
+    
+    // Check for ordered list
+    const isOrderedList = fullLineContent.match(/^\s*\d+\.\s/);
+    if (isOrderedList) styles.add('orderedList');
+    
+    // Check for task list (- [ ] or - [x])
+    const isTaskList = fullLineContent.match(/^\s*[-*+]\s\[[ xX]\]\s/);
+    if (isTaskList) styles.add('task');
+    
+    // Check for paragraph (no special formatting at line start)
+    const hasLinePrefix = isH1Hash || isH2Hash || isH3Hash || isH4Hash || isH5Hash || isH6Hash ||
+      isH1Alt || isH2Alt || isQuote || isBulletList || isOrderedList || isTaskList;
+    if (!hasLinePrefix && fullLineContent.trim().length > 0) {
+      styles.add('paragraph');
+    }
+    
+    return styles;
+  }, [content]);
+
   // Track selection changes from editor
   const handleSelectionChange = useCallback((text: string, from: number, to: number) => {
     const hasText = text.length > 2;
     setHasSelection(hasText);
     if (hasText) {
       setCurrentSelection({ text, from, to });
+      setActiveStyles(detectActiveStyles(text, from, to));
     } else {
       setCurrentSelection(null);
+      setActiveStyles(new Set());
     }
-  }, []);
+  }, [detectActiveStyles]);
 
   // Handle selection enhance from editor popup
   const handleEnhanceSelectionPopup = useCallback((text: string) => {
@@ -682,6 +1065,7 @@ export default function App() {
           theme={theme}
           hasSelection={hasSelection}
           hasApiKey={!!aiSettings.apiKey}
+          activeStyles={activeStyles}
         />
       </header>
 

@@ -1,11 +1,80 @@
 import { useEffect, useRef, useCallback, useState, forwardRef, useImperativeHandle } from 'react';
-import { EditorState } from '@codemirror/state';
-import { EditorView, keymap, lineNumbers, highlightActiveLineGutter, highlightActiveLine, drawSelection, dropCursor, rectangularSelection, crosshairCursor } from '@codemirror/view';
+import { EditorState, RangeSetBuilder } from '@codemirror/state';
+import { EditorView, keymap, lineNumbers, highlightActiveLineGutter, highlightActiveLine, drawSelection, dropCursor, rectangularSelection, crosshairCursor, Decoration, DecorationSet, ViewPlugin, ViewUpdate } from '@codemirror/view';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { languages } from '@codemirror/language-data';
 import { defaultKeymap, history, historyKeymap, indentWithTab, undo, redo } from '@codemirror/commands';
 import { syntaxHighlighting, HighlightStyle, indentOnInput, bracketMatching, foldGutter, foldKeymap } from '@codemirror/language';
 import { tags } from '@lezer/highlight';
+
+// Table line decorations
+const tableHeaderDeco = Decoration.line({ class: 'cm-table-header' });
+const tableSeparatorDeco = Decoration.line({ class: 'cm-table-separator' });
+const tableRowDeco = Decoration.line({ class: 'cm-table-row' });
+
+// Plugin to highlight table lines
+const tableHighlightPlugin = ViewPlugin.fromClass(class {
+  decorations: DecorationSet;
+
+  constructor(view: EditorView) {
+    this.decorations = this.buildDecorations(view);
+  }
+
+  update(update: ViewUpdate) {
+    if (update.docChanged || update.viewportChanged) {
+      this.decorations = this.buildDecorations(update.view);
+    }
+  }
+
+  buildDecorations(view: EditorView): DecorationSet {
+    const builder = new RangeSetBuilder<Decoration>();
+    let inTable = false;
+    let tableLineIndex = 0;
+
+    for (const { from, to } of view.visibleRanges) {
+      for (let pos = from; pos <= to;) {
+        const line = view.state.doc.lineAt(pos);
+        const text = line.text;
+        
+        // Check if this line looks like a table row (contains | character)
+        const isTableLine = text.includes('|') && (
+          // Has multiple pipes or starts/ends with pipe
+          (text.match(/\|/g) || []).length >= 2 ||
+          text.trim().startsWith('|') ||
+          text.trim().endsWith('|')
+        );
+        
+        // Check if it's a separator line (only |, -, :, and spaces)
+        const isSeparator = isTableLine && /^[\s|:|-]+$/.test(text) && text.includes('-');
+        
+        if (isTableLine) {
+          if (!inTable) {
+            inTable = true;
+            tableLineIndex = 0;
+          }
+          
+          if (isSeparator) {
+            builder.add(line.from, line.from, tableSeparatorDeco);
+          } else if (tableLineIndex === 0) {
+            builder.add(line.from, line.from, tableHeaderDeco);
+          } else {
+            builder.add(line.from, line.from, tableRowDeco);
+          }
+          tableLineIndex++;
+        } else {
+          inTable = false;
+          tableLineIndex = 0;
+        }
+        
+        pos = line.to + 1;
+      }
+    }
+    
+    return builder.finish();
+  }
+}, {
+  decorations: v => v.decorations
+});
 
 interface EditorProps {
   value: string;
@@ -146,6 +215,10 @@ const darkMarkdownHighlightStyle = HighlightStyle.define([
   // Quotes
   { tag: tags.quote, color: '#d4d4d8', fontStyle: 'italic' },
   
+  // Tables - highlight pipes and separators
+  { tag: tags.contentSeparator, color: '#8b5cf6', fontWeight: '600' },
+  { tag: tags.separator, color: '#6366f1' },
+  
   // Meta (markdown symbols) - subtle but visible
   { tag: tags.processingInstruction, color: '#71717a' },
   { tag: tags.meta, color: '#71717a' },
@@ -178,6 +251,10 @@ const lightMarkdownHighlightStyle = HighlightStyle.define([
   
   // Quotes
   { tag: tags.quote, color: '#334155', fontStyle: 'italic' },
+  
+  // Tables - highlight pipes and separators
+  { tag: tags.contentSeparator, color: '#7c3aed', fontWeight: '600' },
+  { tag: tags.separator, color: '#6366f1' },
   
   // Meta (markdown symbols) - subtle but visible
   { tag: tags.processingInstruction, color: '#94a3b8' },
@@ -228,6 +305,45 @@ export const Editor = forwardRef<EditorRef, EditorProps>(
       setZoom(prev => Math.max(MIN_ZOOM, Math.round((prev - ZOOM_STEP) * 10) / 10));
     }, []);
 
+    // Detect if text is already formatted with a style
+    const isTextFormatted = useCallback((type: string, text: string, from: number, to: number): boolean => {
+      if (!viewRef.current) return false;
+      
+      const doc = viewRef.current.state.doc.toString();
+      const formats: Record<string, { prefix: string; suffix: string }> = {
+        bold: { prefix: '**', suffix: '**' },
+        italic: { prefix: '*', suffix: '*' },
+        code: { prefix: '`', suffix: '`' },
+      };
+      
+      const format = formats[type];
+      if (!format) return false;
+      
+      const { prefix, suffix } = format;
+      
+      // Check if selection is wrapped with the format markers
+      const beforeSelection = doc.slice(Math.max(0, from - prefix.length), from);
+      const afterSelection = doc.slice(to, to + suffix.length);
+      
+      if (beforeSelection === prefix && afterSelection === suffix) {
+        // For italic, make sure it's not actually bold
+        if (type === 'italic') {
+          const beforeBold = doc.slice(Math.max(0, from - 2), from);
+          const afterBold = doc.slice(to, to + 2);
+          if (beforeBold === '**' && afterBold === '**') return false;
+        }
+        return true;
+      }
+      
+      // Also check if the selection includes the markers
+      if (text.startsWith(prefix) && text.endsWith(suffix) && text.length > prefix.length + suffix.length) {
+        if (type === 'italic' && text.startsWith('**') && text.endsWith('**')) return false;
+        return true;
+      }
+      
+      return false;
+    }, []);
+
     // Handle format from selection toolbar
     const handleFormat = useCallback((type: string) => {
       if (!viewRef.current) return;
@@ -246,6 +362,39 @@ export const Editor = forwardRef<EditorRef, EditorProps>(
       if (!format || !selectedText) return;
       
       const { prefix, suffix } = format;
+      
+      // Check if already formatted - if so, remove the formatting
+      const doc = view.state.doc.toString();
+      const beforeSelection = doc.slice(Math.max(0, from - prefix.length), from);
+      const afterSelection = doc.slice(to, to + suffix.length);
+      
+      if (beforeSelection === prefix && afterSelection === suffix) {
+        // Remove formatting by deleting the markers
+        view.dispatch({
+          changes: [
+            { from: from - prefix.length, to: from, insert: '' },
+            { from: to, to: to + suffix.length, insert: '' },
+          ],
+          selection: { anchor: from - prefix.length, head: to - prefix.length },
+        });
+        view.focus();
+        setSelectionToolbar(null);
+        return;
+      }
+      
+      // If selection includes markers, unwrap them
+      if (selectedText.startsWith(prefix) && selectedText.endsWith(suffix) && selectedText.length > prefix.length + suffix.length) {
+        const unwrapped = selectedText.slice(prefix.length, -suffix.length);
+        view.dispatch({
+          changes: { from, to, insert: unwrapped },
+          selection: { anchor: from, head: from + unwrapped.length },
+        });
+        view.focus();
+        setSelectionToolbar(null);
+        return;
+      }
+      
+      // Apply new formatting
       const wrapped = prefix + selectedText + suffix;
       
       view.dispatch({
@@ -360,6 +509,30 @@ export const Editor = forwardRef<EditorRef, EditorProps>(
         setTimeout(checkSelection, 10);
       };
 
+      // Handle paste to ensure plain text (not HTML) is pasted
+      const handlePaste = (e: ClipboardEvent) => {
+        const clipboardData = e.clipboardData;
+        if (!clipboardData) return;
+        
+        // Check if there's HTML in the clipboard (from rich text sources)
+        const htmlData = clipboardData.getData('text/html');
+        const textData = clipboardData.getData('text/plain');
+        
+        // If there's HTML and it contains actual HTML tags, prefer plain text
+        if (htmlData && textData && /<[^>]+>/.test(htmlData)) {
+          e.preventDefault();
+          
+          if (!viewRef.current) return;
+          const view = viewRef.current;
+          const { from, to } = view.state.selection.main;
+          
+          view.dispatch({
+            changes: { from, to, insert: textData },
+            selection: { anchor: from + textData.length },
+          });
+        }
+      };
+
       const state = EditorState.create({
         doc: value,
         extensions: [
@@ -390,6 +563,7 @@ export const Editor = forwardRef<EditorRef, EditorProps>(
           updateListener,
           EditorView.lineWrapping,
           EditorView.contentAttributes.of({ 'aria-label': 'Markdown editor' }),
+          tableHighlightPlugin,
         ],
       });
 
@@ -403,6 +577,9 @@ export const Editor = forwardRef<EditorRef, EditorProps>(
 
       // Add mouseup listener for selection detection
       view.dom.addEventListener('mouseup', handleMouseUp);
+      
+      // Add paste listener to handle HTML clipboard content
+      view.dom.addEventListener('paste', handlePaste);
 
       // Scroll sync: editor -> preview
       const handleEditorScroll = () => {
@@ -421,6 +598,7 @@ export const Editor = forwardRef<EditorRef, EditorProps>(
 
       return () => {
         view.dom.removeEventListener('mouseup', handleMouseUp);
+        view.dom.removeEventListener('paste', handlePaste);
         view.scrollDOM.removeEventListener('scroll', handleEditorScroll);
         view.destroy();
         viewRef.current = null;
@@ -500,27 +678,40 @@ export const Editor = forwardRef<EditorRef, EditorProps>(
             }}
             onMouseDown={(e) => e.preventDefault()}
           >
-            <button
-              className="selection-toolbar-btn"
-              onClick={() => handleFormat('bold')}
-              title="Bold"
-            >
-              <strong>B</strong>
-            </button>
-            <button
-              className="selection-toolbar-btn"
-              onClick={() => handleFormat('italic')}
-              title="Italic"
-            >
-              <em>I</em>
-            </button>
-            <button
-              className="selection-toolbar-btn"
-              onClick={() => handleFormat('code')}
-              title="Code"
-            >
-              {'<>'}
-            </button>
+            {(() => {
+              const sel = viewRef.current?.state.selection.main;
+              const from = sel?.from ?? 0;
+              const to = sel?.to ?? 0;
+              const isBold = isTextFormatted('bold', selectionToolbar.text, from, to);
+              const isItalic = isTextFormatted('italic', selectionToolbar.text, from, to);
+              const isCode = isTextFormatted('code', selectionToolbar.text, from, to);
+              
+              return (
+                <>
+                  <button
+                    className={`selection-toolbar-btn ${isBold ? 'active' : ''}`}
+                    onClick={() => handleFormat('bold')}
+                    title={isBold ? "Remove Bold" : "Bold"}
+                  >
+                    <strong>B</strong>
+                  </button>
+                  <button
+                    className={`selection-toolbar-btn ${isItalic ? 'active' : ''}`}
+                    onClick={() => handleFormat('italic')}
+                    title={isItalic ? "Remove Italic" : "Italic"}
+                  >
+                    <em>I</em>
+                  </button>
+                  <button
+                    className={`selection-toolbar-btn ${isCode ? 'active' : ''}`}
+                    onClick={() => handleFormat('code')}
+                    title={isCode ? "Remove Code" : "Code"}
+                  >
+                    {'<>'}
+                  </button>
+                </>
+              );
+            })()}
             {onEnhanceSelection && (
               <>
                 <div className="selection-toolbar-divider" />
